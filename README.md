@@ -1,4 +1,4 @@
-# nft-marketplace
+# example
 
 ## Project setup
 ```

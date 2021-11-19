@@ -1,18 +1,23 @@
 <template>
-  <div class="home">
-    <img alt="Vue logo" src="../assets/logo.png" />
-    <HelloWorld msg="Welcome to Your Vue.js + TypeScript App" />
+  <div class="w-screen h-screen flex items-stretch">
+    <ThreeRenderer
+      class="flex-1"
+      objectPath="/models/skull/scene.gltf"
+      skyBoxPath="/skybox/box3.jpeg"
+    />
+    <ThreeRenderer
+      class="flex-1"
+      objectPath="/models/hourglass/scene.gltf"
+      skyBoxPath="/skybox/box2.jpg"
+    />
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import HelloWorld from "@/components/HelloWorld.vue"; // @ is an alias to /src
+import ThreeRenderer from "../components/shared/ThreeRenderer.vue";
 
 export default defineComponent({
-  name: "Home",
-  components: {
-    HelloWorld,
-  },
+  components: { ThreeRenderer },
 });
 </script>
