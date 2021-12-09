@@ -13,14 +13,16 @@ import {
   Vector3,
   DirectionalLight,
   AmbientLight,
-  PointLight,
-  PointLightHelper,
+  HemisphereLight,
   TextureLoader,
   WebGLCubeRenderTarget,
+  BufferAttribute,
   DirectionalLightHelper,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import SimplexNoise from "simplex-noise";
+import { Pane } from "tweakpane";
 
 export default defineComponent({
   name: "EggRenderer",
@@ -28,6 +30,33 @@ export default defineComponent({
   setup(props) {
     const container = ref<HTMLDivElement | null>(null);
     onMounted(() => {
+      const blobConfig = {
+        spike: 2,
+        scale: 1.02,
+        noiseIntensity: 0.02,
+        speed: 0.001,
+      };
+
+      const pane = new Pane({
+        title: "Egg Renderer",
+      });
+      pane.addInput(blobConfig, "spike", {
+        min: 0,
+        max: 10,
+      });
+      pane.addInput(blobConfig, "scale", {
+        min: 1,
+        max: 1.5,
+      });
+      pane.addInput(blobConfig, "noiseIntensity", {
+        min: 0,
+        max: 0.5,
+      });
+      pane.addInput(blobConfig, "speed", {
+        min: 0.0001,
+        max: 0.002,
+      });
+      const noise = new SimplexNoise();
       const scene = new Scene();
       const camera = new PerspectiveCamera(
         75,
@@ -47,8 +76,10 @@ export default defineComponent({
       // scene.add(dHelper);
       scene.add(directionalLight2);
       // scene.add(dHelper2);
+      const hLight = new HemisphereLight();
+      scene.add(hLight);
 
-      let ambientLight = new AmbientLight("#ffffff", 1);
+      let ambientLight = new AmbientLight("#ffffff", 3);
       ambientLight.position.set(0, 55, 55);
       scene.add(ambientLight);
 
@@ -73,7 +104,7 @@ export default defineComponent({
       loader.load(
         "/models/egg/seed.glb",
         (gltf) => {
-          model = gltf.scene;
+          model = gltf.scene.children[0];
 
           // setup center values
           let bbox = new Box3().setFromObject(model);
@@ -91,9 +122,16 @@ export default defineComponent({
           model.position.x -= cent.x;
           model.position.y -= cent.y;
           model.position.z -= cent.z;
-          model.children[0].material.metalness = 0;
+          model.material.metalness = 0.5;
           // model.children[1].material.metalness = 0;
 
+          model.geometry.setAttribute(
+            "basePosition",
+            new (BufferAttribute as any)().copy(
+              model.geometry.attributes.position
+            )
+          );
+          console.debug(model);
           // add model to scene
           scene.add(model);
         },
@@ -104,10 +142,38 @@ export default defineComponent({
       );
 
       container.value!.appendChild(renderer.domElement);
+
       const render = () => {
         renderer.render(scene, camera);
         controls.update();
         if (model) {
+          const blob = model;
+          if (blob) {
+            const basePositionAttribute =
+              blob.geometry.getAttribute("basePosition");
+            const positionAttribute = blob.geometry.attributes.position;
+            const v = new Vector3();
+            for (
+              let vertexIndex = 0;
+              vertexIndex < positionAttribute.count;
+              vertexIndex++
+            ) {
+              let time = performance.now() * blobConfig.speed;
+              v.fromBufferAttribute(basePositionAttribute, vertexIndex);
+              let perlin =
+                noise.noise3D(
+                  v.x * blobConfig.spike + time + 0.0002,
+                  v.y * blobConfig.spike + time + 0.0003,
+                  v.z * blobConfig.spike + time,
+                ) *
+                  blobConfig.noiseIntensity +
+                blobConfig.scale;
+              v.multiplyScalar(perlin);
+              positionAttribute.setXYZ(vertexIndex, v.x, v.y, v.z);
+            }
+            blob.geometry.attributes.position.needsUpdate = true; // required after the first render
+            blob.geometry.computeBoundingSphere();
+          }
           model.rotation.y += 0.005;
         }
       };
@@ -119,10 +185,10 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
+<style>
 .galaxy {
   background-image: url("https://user-images.githubusercontent.com/26748614/96337246-f14d4580-1085-11eb-8793-a86d929e034d.jpg");
   background-size: cover;
   backdrop-filter: brightness(50%);
-}
+} 
 </style>
